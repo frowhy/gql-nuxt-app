@@ -1,0 +1,14 @@
+query users ($page: Int!) {
+    users(take: 2,page: $page) {
+        items {
+            id
+            email
+        }
+        cursor {
+            total
+            perPage
+            currentPage
+            hasMorePages
+        }
+    }
+}

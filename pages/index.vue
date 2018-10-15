@@ -17,6 +17,10 @@
                     v-show="getSinged"
                     class="button--grey"
                     @click="signOut">{{ signOutStatus }}</a>
+                <a
+                    v-show="showMoreEnabled"
+                    class="button--green"
+                    @click="showMore">加载更多</a>
             </div>
         </div>
     </section>
@@ -25,25 +29,33 @@
 <script>
 import Logo      from '~/components/Logo.vue'
 import signInGQL from '~/gql/SignIn.gql'
+import usersGQL  from '~/gql/Users.gql'
 
 export default {
     components: {
         Logo,
     },
-    data() {
-        return {
-            email:         'frowhy@gmail.com',
-            password:      'admin',
-            signInData:    null,
-            signInStatus:  "登录",
-            signOutStatus: "注销",
+    data:       () => (
+        {
+            email:           'frowhy@gmail.com',
+            password:        'secret',
+            signInData:      null,
+            signInStatus:    "登录",
+            signOutStatus:   "注销",
+            page:            1,
+            showMoreEnabled: true,
         }
-    },
+    ),
     computed:   {
         getSinged() {
             return this.$store.state.isSigned === undefined
                    ? !!this.$apolloHelpers.getToken()
                    : this.$store.state.isSigned
+        },
+    },
+    watch:      {
+        users(data) {
+            console.log(data.items)
         },
     },
     fetch({ app, params }) {
@@ -63,7 +75,46 @@ export default {
         //     getTwo,
         // }
     },
+    apollo:     {
+        users: {
+            query:     usersGQL,
+            variables: {
+                page: 1,
+            },
+        },
+    },
     methods:    {
+        showMore() {
+            let _this = this
+            if (_this.showMoreEnabled) {
+                _this.page++
+                _this.$apollo.queries.users.fetchMore({
+                                                          variables:   {
+                                                              page: _this.page,
+                                                          },
+                                                          updateQuery: (previousResult, { fetchMoreResult }) => {
+                                                              const oldItems = previousResult.users.items
+                                                              const newItems = fetchMoreResult.users.items
+                                                              const cursor   = fetchMoreResult.users.cursor
+
+                                                              _this.showMoreEnabled = cursor.hasMorePages
+
+                                                              return {
+                                                                  users: {
+                                                                      __typename: previousResult.users.__typename,
+                                                                      items:      [
+                                                                          ...oldItems,
+                                                                          ...newItems,
+                                                                      ],
+                                                                      cursor,
+                                                                  },
+                                                              }
+                                                          },
+                                                      })
+            } else {
+                console.log("没有更多内容了")
+            }
+        },
         async signIn() {
             let _this          = this
             _this.signInStatus = "登陆中..."
